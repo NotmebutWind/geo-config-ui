@@ -140,6 +140,8 @@ input.invalid, textarea.invalid { border-color: var(--danger); }
 .toggle input:checked + .toggle-ui { background: var(--accent); }
 .toggle input:checked + .toggle-ui::after { transform: translateX(16px); }
 .toggle strong, .toggle small { display: block; }
+.workflow-toggle { margin: 0 0 18px; padding: 13px 15px; border: 1px solid var(--line); border-radius: 9px; background: #f7f8f4; }
+.workflow-toggle small { margin-top: 3px; color: var(--muted); }
 
 .review-panel { position: sticky; top: 22px; display: grid; gap: 16px; }
 .review-card { background: rgba(255,254,251,.82); backdrop-filter: blur(8px); border: 1px solid rgba(24,36,33,.1); border-radius: 12px; padding: 20px; }

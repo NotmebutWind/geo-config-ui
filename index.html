@@ -84,18 +84,20 @@
 
             <section id="competitors" class="form-section" data-section="竞品信息">
               <div class="section-heading">
-                <div><span class="step-tag">STEP 03</span><h2>竞品信息</h2><p>每个竞品可以填写多个官网、产品页或文档 URL。摘要可以手填，也可以由私有服务端抓取后生成。</p></div>
+                <div><span class="step-tag">STEP 03 · 选填</span><h2>竞品信息</h2><p>每个竞品可以填写多个官网、产品页或文档 URL。网页仅收集资料，摘要由私有服务端在拆包后生成。</p></div>
                 <button class="button small secondary" type="button" data-add="competitors">＋ 添加竞品</button>
               </div>
+              <label class="toggle workflow-toggle"><input name="package.summarizeCompetitorsIfEmpty" type="checkbox" checked /><span class="toggle-ui"></span><span><strong>由私有服务端补全空白竞品摘要</strong><small>已有手填或已审核摘要不会重复生成。</small></span></label>
               <div id="competitors-list" class="repeat-list"></div>
               <div id="competitors-empty" class="empty-state"><span>◎</span><p>还没有竞品</p><button class="text-button" type="button" data-add="competitors">添加第一个竞品</button></div>
             </section>
 
             <section id="questions" class="form-section" data-section="测试问题">
               <div class="section-heading">
-                <div><span class="step-tag">STEP 04</span><h2>用户会怎么问</h2><p>用真实用户的口吻写问题。建议准备 3–6 个，覆盖推荐、对比和关键能力。</p></div>
+                <div><span class="step-tag">STEP 04 · 选填</span><h2>用户会怎么问</h2><p>如果客户已有真实问题，可填写 3–6 个；留空也能生成配置。</p></div>
                 <button class="button small secondary" type="button" data-add="questions">＋ 添加问题</button>
               </div>
+              <label class="toggle workflow-toggle"><input name="package.generateQuestionsIfEmpty" type="checkbox" checked /><span class="toggle-ui"></span><span><strong>留空时由私有服务端生成问题</strong><small>使用 DeepSeek V4 Flash；只在没有填写任何问题时触发。</small></span></label>
               <div id="questions-list" class="question-list"></div>
             </section>
 
@@ -154,7 +156,7 @@
               <ul id="completion-list" class="completion-list"></ul>
             </div>
             <div class="review-card preview-card">
-              <div class="review-header"><span>文件预览</span><button id="copy-json" class="icon-button" type="button" aria-label="复制 JSON">复制</button></div>
+              <div class="review-header"><span>ZIP 内配置预览</span><button id="copy-json" class="icon-button" type="button" aria-label="复制 JSON">复制</button></div>
               <code id="filename-preview">config/track-new-target.json</code>
               <pre id="json-preview"></pre>
               <button id="open-preview" class="text-button" type="button">查看完整 JSON</button>
@@ -162,17 +164,16 @@
             <div id="static-handoff" class="review-card handoff-card" hidden>
               <span class="step-tag">NEXT STEP</span>
               <strong>把配置交给项目</strong>
-              <p>JSON 已下载。登录 GitHub 后，将文件拖入私有项目的 config 目录即可。</p>
-              <a class="button secondary" href="https://github.com/NotmebutWind/geo-research/upload/main/config" target="_blank" rel="noreferrer">上传到私有项目 ↗</a>
+              <p>ZIP 已下载，请通过团队约定的私有渠道交给服务端处理。</p>
+              <a class="button secondary" href="https://github.com/NotmebutWind/geo-research" target="_blank" rel="noreferrer" hidden>打开私有项目 ↗</a>
             </div>
           </aside>
         </div>
 
         <footer class="action-bar">
-          <div><strong id="save-title">准备好后生成配置</strong><span id="save-subtitle">文件会写入项目的 config 目录</span></div>
+          <div><strong id="save-title">准备好后生成配置</strong><span id="save-subtitle">一份 ZIP 会安全下载到你的电脑</span></div>
           <div class="action-buttons">
-            <button id="download-package" type="button" class="button secondary">下载离线资料包</button>
-            <button id="save-config" type="button" class="button primary">生成 JSON 配置 <span>→</span></button>
+            <button id="save-config" type="button" class="button primary">生成配置文件 <span>→</span></button>
           </div>
         </footer>
       </main>
@@ -205,9 +206,9 @@
           <label class="field"><span>页面标题</span><input data-key="title" placeholder="例如：一站式协同办公平台" /></label>
           <label class="field"><span>竞品 ID</span><input data-key="id" placeholder="comp-example" /></label>
           <label class="field full"><span>官网、产品页与文档 URL *</span><textarea data-key="seedUrls" data-array="lines" rows="4" placeholder="每行一个 URL，例如：&#10;https://www.example.com/&#10;https://docs.example.com/product"></textarea><small>支持多个 URL。公开页面只记录链接；私有服务端可以抓取并生成待审核摘要。</small></label>
-          <label class="field full"><span>竞品资料摘要 <em>选填</em></span><textarea data-key="content" rows="5" placeholder="可以手填，也可以点击下方按钮让私有服务端基于上述 URL 生成。机器生成内容需要 PM 确认。"></textarea></label>
+          <label class="field full"><span>竞品资料摘要 <em>选填</em></span><textarea data-key="content" rows="5" placeholder="可手工填写；留空时私有服务端会基于上述 URL 生成，生成后可通过“审核机器配置”确认。"></textarea></label>
           <input data-key="contentStatus" type="hidden" />
-          <div class="card-actions full"><span class="summary-status" data-summary-status>尚未生成摘要</span><button class="button small secondary" type="button" data-fetch-competitor>从 URL 生成摘要</button><button class="button small secondary" type="button" data-confirm-summary>确认摘要</button></div>
+          <div class="card-actions full"><span class="summary-status" data-summary-status>摘要选填</span><button class="button small secondary" type="button" data-confirm-summary>确认手填摘要</button></div>
         </div>
       </article>
     </template>

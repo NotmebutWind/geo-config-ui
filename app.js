@@ -129,6 +129,13 @@ function buildConfig() {
   return config;
 }
 
+function buildProcessingOptions() {
+  return {
+    summarizeCompetitorsIfEmpty: getField('package.summarizeCompetitorsIfEmpty').checked,
+    generateQuestionsIfEmpty: getField('package.generateQuestionsIfEmpty').checked
+  };
+}
+
 function fillForm(config = {}) {
   const target = config?.target && typeof config.target === 'object' ? config.target : {};
   const values = {
@@ -208,41 +215,11 @@ function setupEvidenceSourceCard(card, item) {
   });
 }
 
-async function fetchCompetitorSummary(index, button) {
-  syncStateFromDom();
-  const competitor = state.competitors[index];
-  const urls = [...new Set([...(competitor.seedUrls || []), competitor.url].filter(Boolean))];
-  if (!competitor.name || !urls.length) return showToast('请先填写竞品名称和 URL', '', 'error');
-  if (state.staticMode) return showToast('需要私有服务端', '公开页面只记录 URL。请先下载资料包并交给私有服务端处理。', 'error');
-  button.disabled = true;
-  button.textContent = '正在抓取…';
-  try {
-    const response = await fetch('/api/competitors/preview', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: competitor.name, seedUrls: urls, questions: buildConfig().questions })
-    });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || '摘要生成失败');
-    state.competitors[index] = { ...competitor, url: competitor.url || urls[0], seedUrls: result.sourceUrls, title: result.title, content: result.content, contentStatus: 'generated' };
-    renderAllLists();
-    updatePreview();
-    saveDraft();
-    showToast('摘要已生成', '请阅读并点击“确认摘要”后再作为已审核内容使用。');
-  } catch (error) {
-    showToast('摘要生成失败', error.message, 'error');
-  } finally {
-    button.disabled = false;
-    button.textContent = '从 URL 生成摘要';
-  }
-}
-
 function setupCompetitorCard(card, item, index) {
   const status = $('[data-summary-status]', card);
   const contentStatus = item.contentStatus || (item.content ? 'reviewed' : 'empty');
   status.className = `summary-status ${contentStatus}`;
   status.textContent = contentStatus === 'generated' ? '机器生成 · 待 PM 确认' : contentStatus === 'reviewed' ? 'PM 已确认' : '摘要选填';
-  $('[data-fetch-competitor]', card).addEventListener('click', (event) => fetchCompetitorSummary(index, event.currentTarget));
   $('[data-confirm-summary]', card).addEventListener('click', () => {
     syncStateFromDom();
     if (!state.competitors[index]?.content) return showToast('没有可确认的摘要', '', 'error');
@@ -324,26 +301,27 @@ function syncStateFromDom() {
   state.questions = $$('.question-row input').map((input) => input.value);
 }
 
-const sectionChecks = [
-  ['项目概览', () => ['name', 'id', 'niche', 'industry', 'product', 'description'].every((name) => getField(name).value.trim())],
-  ['目标产品', () => ['target.name', 'target.aliases', 'target.urlPatterns', 'target.seedUrls'].every((name) => getField(name).value.trim())],
-  ['竞品信息', () => normalizedCompetitors().every((item) => item.name && item.seedUrls.length)],
-  ['测试问题', () => $$('.question-row input').some((input) => input.value.trim())],
-  ['内部证据', () => true],
-  ['高级设置', () => Boolean(getField('generation.systemPrompt').value.trim())]
+const completionGroups = [
+  ['项目概览', ['name', 'id', 'niche', 'industry', 'product', 'description']],
+  ['目标产品', ['target.name', 'target.aliases', 'target.urlPatterns', 'target.seedUrls']]
 ];
 
 function updateCompletion() {
-  const results = sectionChecks.map(([label, check]) => [label, Boolean(check())]);
-  const score = Math.round(results.filter(([, done]) => done).length / results.length * 100);
+  const results = completionGroups.map(([label, names]) => {
+    const completed = names.filter((name) => getField(name).value.trim()).length;
+    return { label, completed, total: names.length, done: completed === names.length };
+  });
+  const completed = results.reduce((sum, result) => sum + result.completed, 0);
+  const total = results.reduce((sum, result) => sum + result.total, 0);
+  const score = Math.round(completed / total * 100);
   $('#completion-value').textContent = `${score}%`;
   $('#completion-bar').style.width = `${score}%`;
   const list = $('#completion-list');
   list.innerHTML = '';
-  results.forEach(([label, done]) => {
+  results.forEach(({ label, completed: count, total: groupTotal, done }) => {
     const item = document.createElement('li');
     item.className = done ? 'done' : '';
-    item.textContent = `${label}${label === '内部证据' ? '（可选）' : ''}`;
+    item.textContent = `${label}（${count}/${groupTotal}）`;
     list.append(item);
   });
 }
@@ -366,11 +344,11 @@ function updatePreview() {
 function updatePrimaryAction() {
   const button = $('#save-config');
   if (!button || button.disabled) return;
-  button.innerHTML = state.attachments.size ? '生成离线资料包 <span>→</span>' : '生成 JSON 配置 <span>→</span>';
+  button.innerHTML = '生成配置文件 <span>→</span>';
 }
 
 function saveDraft() {
-  localStorage.setItem('geo-config-draft', JSON.stringify({ config: buildConfig(), editingFileName: state.editingFileName }));
+  localStorage.setItem('geo-config-draft', JSON.stringify({ config: buildConfig(), processing: buildProcessingOptions(), editingFileName: state.editingFileName }));
   $('#draft-status').textContent = '草稿已自动保存';
 }
 
@@ -385,7 +363,7 @@ function localLibrary() {
 
 function saveToLocalLibrary(config, fileName) {
   const items = localLibrary().filter((item) => item.fileName !== fileName);
-  items.unshift({ fileName, config, updatedAt: new Date().toISOString() });
+  items.unshift({ fileName, config, processing: buildProcessingOptions(), updatedAt: new Date().toISOString() });
   localStorage.setItem('geo-config-library', JSON.stringify(items.slice(0, 30)));
 }
 
@@ -398,10 +376,6 @@ function downloadBlob(blob, fileName) {
   anchor.click();
   anchor.remove();
   URL.revokeObjectURL(url);
-}
-
-function downloadJson(config, fileName) {
-  downloadBlob(new Blob([`${JSON.stringify(config, null, 2)}\n`], { type: 'application/json;charset=utf-8' }), fileName);
 }
 
 async function sha256(file) {
@@ -438,9 +412,19 @@ async function downloadOfflinePackage() {
     manifestEntries.push({ sourceId: source.id, originalName: file.name, path, size: file.size, mimeType: source.mimeType, sha256: checksum });
     entries.push({ name: path, data: file, date: new Date(file.lastModified) });
   }
-  const manifest = { schemaVersion: 1, targetId: config.id, product: config.product, createdAt: new Date().toISOString(), attachments: manifestEntries };
+  const configPath = `config/${currentFileName()}`;
+  const manifest = {
+    schemaVersion: 2,
+    packageType: 'geo-config-offline-package',
+    targetId: config.id,
+    product: config.product,
+    createdAt: new Date().toISOString(),
+    configPath,
+    processing: buildProcessingOptions(),
+    attachments: manifestEntries
+  };
   entries.unshift(
-    { name: `config/${currentFileName()}`, data: `${JSON.stringify(config, null, 2)}\n` },
+    { name: configPath, data: `${JSON.stringify(config, null, 2)}\n` },
     { name: 'manifest.json', data: `${JSON.stringify(manifest, null, 2)}\n` }
   );
   const blob = await createZipBlob(entries);
@@ -449,10 +433,10 @@ async function downloadOfflinePackage() {
   state.editingFileName = currentFileName();
   await loadConfigList();
   $('#static-handoff').hidden = false;
-  $('#static-handoff strong').textContent = '通过离线渠道提交资料包';
-  $('#static-handoff p').textContent = '附件和配置已打包到本机 ZIP，不会上传 GitHub。请将 ZIP 离线交给私有服务端处理。';
+  $('#static-handoff strong').textContent = '把 ZIP 配置包交给私有服务端';
+  $('#static-handoff p').textContent = '配置和附件只生成在这一份 ZIP 中，不会上传 GitHub。服务端拆包后会按需补全问题与摘要。';
   $('#static-handoff a').hidden = true;
-  showToast('离线资料包已下载', `包含 ${manifestEntries.length} 个附件和一份配置文件。`);
+  showToast('配置文件已下载', `ZIP 中包含一份配置和 ${manifestEntries.length} 个附件。`);
   return true;
 }
 
@@ -491,17 +475,25 @@ function showToast(title, detail = '', type = 'success') {
 }
 
 function validateForm() {
+  const hasQuestions = $$('.question-row input').some((field) => field.value.trim());
+  if (!hasQuestions && !getField('package.generateQuestionsIfEmpty').checked) {
+    $('#questions').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    showToast('请填写测试问题或开启自动生成', '测试问题可以留空，但需要允许私有服务端补全。', 'error');
+    return false;
+  }
+  const needsManualSummary = !getField('package.summarizeCompetitorsIfEmpty').checked
+    && normalizedCompetitors().some((competitor) => !String(competitor.content || '').trim());
+  if (needsManualSummary) {
+    $('#competitors').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    showToast('竞品摘要尚未完成', '请填写摘要，或开启“由私有服务端补全空白竞品摘要”。', 'error');
+    return false;
+  }
   let firstInvalid = null;
   $$('[required]', form).forEach((field) => {
     const invalid = !field.value.trim();
     field.classList.toggle('invalid', invalid);
     if (invalid && !firstInvalid) firstInvalid = field;
   });
-  if (!$$('.question-row input').some((field) => field.value.trim())) {
-    const field = $('.question-row input');
-    field?.classList.add('invalid');
-    firstInvalid ||= field;
-  }
   $$('[data-list="competitors"]', form).forEach((card) => {
     const name = $('[data-key="name"]', card);
     const urls = $('[data-key="seedUrls"]', card);
@@ -542,42 +534,10 @@ async function saveConfig() {
   button.disabled = true;
   button.textContent = '正在生成…';
   try {
-    if (state.attachments.size) {
-      await downloadOfflinePackage();
-      $('#save-title').textContent = '离线资料包已生成';
-      $('#save-subtitle').textContent = '附件未上传 GitHub';
-      return;
-    }
-    if (state.staticMode) {
-      const config = buildConfig();
-      const fileName = currentFileName();
-      downloadJson(config, fileName);
-      saveToLocalLibrary(config, fileName);
-      state.editingFileName = fileName;
-      localStorage.removeItem('geo-config-draft');
-      $('#save-title').textContent = '配置已生成并下载';
-      $('#save-subtitle').textContent = fileName;
-      $('#static-handoff').hidden = false;
-      $('#static-handoff strong').textContent = '把配置交给项目';
-      $('#static-handoff p').textContent = 'JSON 已下载。登录 GitHub 后，将文件拖入私有项目的 config 目录即可。';
-      $('#static-handoff a').hidden = false;
-      showToast('配置已下载');
-      await loadConfigList();
-      return;
-    }
-    const response = await fetch('/api/configs', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fileName: currentFileName(), config: buildConfig(), overwrite: state.editingFileName === currentFileName() })
-    });
-    const result = await response.json();
-    if (!response.ok) throw new Error([result.error, ...(result.details || [])].join('；'));
-    state.editingFileName = result.fileName;
+    await downloadOfflinePackage();
     localStorage.removeItem('geo-config-draft');
-    $('#save-title').textContent = '配置已生成';
-    $('#save-subtitle').textContent = result.path;
-    showToast('配置创建成功', result.path);
-    await loadConfigList();
+    $('#save-title').textContent = '配置文件已生成';
+    $('#save-subtitle').textContent = `${safeArchiveName(buildConfig().id || 'target')}-offline-package.zip`;
   } catch (error) {
     showToast('生成失败', error.message, 'error');
   } finally {
@@ -630,8 +590,10 @@ async function loadExisting(fileName) {
       state.editingFileName = item.fileName;
       state.slugTouched = true;
       fillForm(item.config);
+      setField('package.summarizeCompetitorsIfEmpty', item.processing?.summarizeCompetitorsIfEmpty ?? true);
+      setField('package.generateQuestionsIfEmpty', item.processing?.generateQuestionsIfEmpty ?? true);
       $('#save-title').textContent = `正在编辑 ${item.config.product || item.config.target?.name || '配置'}`;
-      $('#save-subtitle').textContent = '再次生成会下载更新后的文件';
+      $('#save-subtitle').textContent = '再次生成会下载更新后的 ZIP 配置包';
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return showToast('已载入本机配置', item.fileName);
     }
@@ -642,7 +604,7 @@ async function loadExisting(fileName) {
     state.slugTouched = true;
     fillForm(result.config);
     $('#save-title').textContent = `正在编辑 ${result.config.product || result.config.target?.name || '配置'}`;
-    $('#save-subtitle').textContent = `保存时将更新 config/${result.fileName}`;
+    $('#save-subtitle').textContent = `生成时会下载包含 config/${result.fileName} 的 ZIP`;
     window.scrollTo({ top: 0, behavior: 'smooth' });
     showToast('已载入配置', result.fileName);
   } catch (error) {
@@ -659,12 +621,14 @@ function newConfig({ keepDefaults = true } = {}) {
     optimizationStandards: base.optimizationStandards || [],
     generation: base.generation || {}, probe: base.probe || {}
   });
+  setField('package.summarizeCompetitorsIfEmpty', true);
+  setField('package.generateQuestionsIfEmpty', true);
   state.editingFileName = null;
   state.slugTouched = false;
   localStorage.removeItem('geo-config-draft');
   $('#static-handoff').hidden = true;
   $('#save-title').textContent = '准备好后生成配置';
-  $('#save-subtitle').textContent = state.staticMode ? '文件会安全下载到你的电脑' : '文件会写入项目的 config 目录';
+  $('#save-subtitle').textContent = '一份 ZIP 会安全下载到你的电脑';
   getField('name').focus();
 }
 
@@ -779,6 +743,8 @@ async function init() {
         if (!parsed?.config || typeof parsed.config !== 'object' || Array.isArray(parsed.config)) throw new Error('invalid draft');
         state.editingFileName = typeof parsed.editingFileName === 'string' ? parsed.editingFileName : null;
         fillForm(parsed.config);
+        setField('package.summarizeCompetitorsIfEmpty', parsed.processing?.summarizeCompetitorsIfEmpty ?? true);
+        setField('package.generateQuestionsIfEmpty', parsed.processing?.generateQuestionsIfEmpty ?? true);
         showToast('已恢复上次草稿', '附件出于安全原因不会保存在浏览器草稿中，如需打包请重新选择。');
       } catch {
         localStorage.removeItem('geo-config-draft');
@@ -797,11 +763,6 @@ form.addEventListener('change', onFormChange);
 getField('target.name').addEventListener('input', () => { getField('target.name').dataset.synced = 'false'; });
 $$('[data-add]').forEach((button) => button.addEventListener('click', () => addItem(button.dataset.add)));
 $('#save-config').addEventListener('click', saveConfig);
-$('#download-package').addEventListener('click', async () => {
-  const button = $('#download-package');
-  button.disabled = true;
-  try { await downloadOfflinePackage(); } catch (error) { showToast('资料包生成失败', error.message, 'error'); } finally { button.disabled = false; }
-});
 $('#new-config').addEventListener('click', () => newConfig());
 $('#refresh-list').addEventListener('click', loadConfigList);
 $('#copy-json').addEventListener('click', copyJson);
