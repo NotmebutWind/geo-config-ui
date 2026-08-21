@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f4f1ea" />
+    <meta name="description" content="面向产品经理的 GEO 测评配置创建工作台" />
+    <meta property="og:title" content="GEO 配置工作台" />
+    <meta property="og:description" content="把产品资料，变成可运行的测评配置" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="https://notmebutwind.github.io/geo-config-ui/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://notmebutwind.github.io/geo-config-ui/og.png" />
+    <title>GEO 配置工作台</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <a class="brand" href="#top" aria-label="GEO 配置工作台首页">
+          <span class="brand-mark">G</span>
+          <span><strong>GEO Config</strong><small>配置工作台</small></span>
+        </a>
+
+        <nav class="section-nav" aria-label="表单章节">
+          <a class="active" href="#basics"><span>01</span> 项目概览</a>
+          <a href="#target"><span>02</span> 目标产品</a>
+          <a href="#competitors"><span>03</span> 竞品信息</a>
+          <a href="#questions"><span>04</span> 测试问题</a>
+          <a href="#evidence"><span>05</span> 内部证据</a>
+          <a href="#advanced"><span>06</span> 高级设置</a>
+        </nav>
+
+        <div class="saved-panel">
+          <div class="saved-heading"><span>已有配置</span><button type="button" id="refresh-list" class="icon-button" aria-label="刷新配置列表">↻</button></div>
+          <div id="config-list" class="config-list"><p class="muted">正在读取…</p></div>
+        </div>
+      </aside>
+
+      <main id="top" class="main-content">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">NEW TARGET SETUP</p>
+            <h1>创建测评目标</h1>
+            <p>把产品资料整理成一份可直接运行的 GEO 配置。</p>
+          </div>
+          <div class="topbar-actions">
+            <span id="draft-status" class="draft-status">草稿已自动保存</span>
+            <button id="new-config" type="button" class="button secondary">＋ 新建另一份</button>
+          </div>
+        </header>
+
+        <div class="workspace">
+          <form id="config-form" novalidate>
+            <section id="basics" class="form-section" data-section="项目概览">
+              <div class="section-heading">
+                <div><span class="step-tag">STEP 01</span><h2>先说清楚测什么</h2><p>这些信息会成为配置名称，也是团队后续识别不同测评项目的依据。</p></div>
+                <span class="required-note">* 必填</span>
+              </div>
+              <div class="field-grid two-columns">
+                <label class="field"><span>测评名称 *</span><input name="name" required placeholder="例如：协同办公软件选型测评" /><small>建议写清场景与品类，让团队一眼能找到。</small></label>
+                <label class="field"><span>配置 ID *</span><input name="id" required data-slug-source="name" placeholder="collaboration-software" /><small>仅使用英文、数字与连字符。</small></label>
+                <label class="field"><span>行业名称 *</span><input name="industry" required placeholder="例如：企业服务·协同办公" /></label>
+                <label class="field"><span>产品名称 *</span><input name="product" required placeholder="例如：飞书" /></label>
+                <label class="field full"><span>赛道关键词 *</span><input name="niche" required placeholder="例如：企业协同 办公平台" /><small>保持为短关键词，将用于搜索发现，不要写成长段介绍。</small></label>
+                <label class="field full"><span>测评描述 *</span><textarea name="description" required rows="4" placeholder="说明使用场景、目标用户，以及本次测评最关心的问题。"></textarea></label>
+              </div>
+            </section>
+
+            <section id="target" class="form-section" data-section="目标产品">
+              <div class="section-heading">
+                <div><span class="step-tag">STEP 02</span><h2>目标产品资料</h2><p>优先填写官网与官方文档，这些页面是系统理解产品的核心信源。</p></div>
+              </div>
+              <div class="field-grid two-columns">
+                <label class="field"><span>目标产品名 *</span><input name="target.name" required placeholder="例如：飞书" /></label>
+                <label class="field"><span>产品别名 *</span><input name="target.aliases" required placeholder="飞书, Feishu, Lark" /><small>多个名称用逗号分隔。</small></label>
+                <label class="field full"><span>官方域名 *</span><input name="target.urlPatterns" required placeholder="feishu.cn, larksuite.com" /><small>无需填写 https://，多个域名用逗号分隔。</small></label>
+                <label class="field full"><span>产品官网与官方文档 *</span><textarea name="target.seedUrls" required rows="4" placeholder="每行一个 URL，例如：&#10;https://www.example.com/product&#10;https://docs.example.com/start"></textarea><small>系统默认会从这些页面提取产品信息。</small></label>
+                <label class="field full"><span>自定义搜索词 <em>可选</em></span><textarea name="target.searchQueries" rows="3" placeholder="每行一个完整搜索词。留空时系统会根据产品名和赛道关键词自动生成。"></textarea></label>
+              </div>
+            </section>
+
+            <section id="competitors" class="form-section" data-section="竞品信息">
+              <div class="section-heading">
+                <div><span class="step-tag">STEP 03</span><h2>竞品信息</h2><p>竞品会作为对照进入测评。可以先只填名称和官网，后续再补资料。</p></div>
+                <button class="button small secondary" type="button" data-add="competitors">＋ 添加竞品</button>
+              </div>
+              <div id="competitors-list" class="repeat-list"></div>
+              <div id="competitors-empty" class="empty-state"><span>◎</span><p>还没有竞品</p><button class="text-button" type="button" data-add="competitors">添加第一个竞品</button></div>
+            </section>
+
+            <section id="questions" class="form-section" data-section="测试问题">
+              <div class="section-heading">
+                <div><span class="step-tag">STEP 04</span><h2>用户会怎么问</h2><p>用真实用户的口吻写问题。建议准备 3–6 个，覆盖推荐、对比和关键能力。</p></div>
+                <button class="button small secondary" type="button" data-add="questions">＋ 添加问题</button>
+              </div>
+              <div id="questions-list" class="question-list"></div>
+            </section>
+
+            <section id="evidence" class="form-section" data-section="内部证据">
+              <div class="section-heading">
+                <div><span class="step-tag">STEP 05</span><h2>内部文档与可信事实</h2><p>录入经过确认的客户案例、性能数据或合规信息。每条事实都保留来源和核验日期。</p></div>
+                <button class="button small secondary" type="button" data-add="evidenceFacts">＋ 添加事实</button>
+              </div>
+              <div id="evidenceFacts-list" class="repeat-list"></div>
+              <div id="evidenceFacts-empty" class="empty-state"><span>◇</span><p>内部证据为可选项，可稍后补充</p></div>
+            </section>
+
+            <section id="advanced" class="form-section advanced-section" data-section="高级设置">
+              <details>
+                <summary><span><span class="step-tag">STEP 06</span><strong>高级设置</strong><small>优化标准与模型参数，默认沿用主配置即可</small></span><span class="chevron">⌄</span></summary>
+                <div class="details-body">
+                  <div class="advanced-block">
+                    <div class="subheading"><div><h3>优化标准</h3><p>用于检查内容是否覆盖关键选型维度。</p></div><button class="button small secondary" type="button" data-add="optimizationStandards">＋ 添加标准</button></div>
+                    <div id="optimizationStandards-list" class="repeat-list compact"></div>
+                  </div>
+                  <div class="advanced-block">
+                    <h3>回答生成</h3>
+                    <div class="field-grid three-columns">
+                      <label class="field full"><span>系统提示词</span><textarea name="generation.systemPrompt" rows="7"></textarea><small>请保留 {context} 占位符。</small></label>
+                      <label class="field"><span>Top K</span><input name="generation.topK" type="number" min="1" step="1" /></label>
+                      <label class="field"><span>Temperature</span><input name="generation.temperature" type="number" min="0" max="2" step="0.1" /></label>
+                    </div>
+                  </div>
+                  <div class="advanced-block">
+                    <h3>真实搜索探测</h3>
+                    <div class="field-grid three-columns">
+                      <label class="field"><span>千问模型</span><input name="probe.model" /></label>
+                      <label class="field"><span>豆包接入点</span><input name="probe.doubaoModel" /></label>
+                      <label class="field"><span>Temperature</span><input name="probe.temperature" type="number" min="0" max="2" step="0.1" /></label>
+                      <label class="field full"><span>参与模型</span><input name="probe.models" placeholder="qwen, deepseek, doubao" /></label>
+                      <label class="toggle field full"><input name="probe.forceSearch" type="checkbox" /><span class="toggle-ui"></span><span><strong>强制联网搜索</strong><small>建议开启，确保每次测评样本可比较。</small></span></label>
+                    </div>
+                  </div>
+                </div>
+              </details>
+            </section>
+          </form>
+
+          <aside class="review-panel">
+            <div class="review-card">
+              <div class="review-header"><span>配置完成度</span><strong id="completion-value">0%</strong></div>
+              <div class="progress"><span id="completion-bar"></span></div>
+              <ul id="completion-list" class="completion-list"></ul>
+            </div>
+            <div class="review-card preview-card">
+              <div class="review-header"><span>文件预览</span><button id="copy-json" class="icon-button" type="button" aria-label="复制 JSON">复制</button></div>
+              <code id="filename-preview">config/track-new-target.json</code>
+              <pre id="json-preview"></pre>
+              <button id="open-preview" class="text-button" type="button">查看完整 JSON</button>
+            </div>
+            <div id="static-handoff" class="review-card handoff-card" hidden>
+              <span class="step-tag">NEXT STEP</span>
+              <strong>把配置交给项目</strong>
+              <p>JSON 已下载。登录 GitHub 后，将文件拖入私有项目的 config 目录即可。</p>
+              <a class="button secondary" href="https://github.com/NotmebutWind/geo-research/upload/main/config" target="_blank" rel="noreferrer">上传到私有项目 ↗</a>
+            </div>
+          </aside>
+        </div>
+
+        <footer class="action-bar">
+          <div><strong id="save-title">准备好后生成配置</strong><span id="save-subtitle">文件会写入项目的 config 目录</span></div>
+          <button id="save-config" type="button" class="button primary">生成 JSON 配置 <span>→</span></button>
+        </footer>
+      </main>
+    </div>
+
+    <div id="toast-region" class="toast-region" aria-live="polite"></div>
+    <dialog id="json-dialog">
+      <div class="dialog-header"><div><p class="eyebrow">JSON PREVIEW</p><h2>配置文件预览</h2></div><button class="icon-button" type="button" data-close-dialog aria-label="关闭">×</button></div>
+      <pre id="json-dialog-content"></pre>
+      <div class="dialog-actions"><button class="button secondary" type="button" data-close-dialog>返回编辑</button><button class="button primary" id="dialog-copy" type="button">复制 JSON</button></div>
+    </dialog>
+
+    <template id="competitor-template">
+      <article class="repeat-card competitor-card">
+        <div class="repeat-card-heading"><span class="item-number"></span><strong class="item-title">新竞品</strong><button class="icon-button danger" type="button" data-remove aria-label="删除竞品">×</button></div>
+        <div class="field-grid two-columns">
+          <label class="field"><span>竞品名称 *</span><input data-key="name" placeholder="例如：钉钉" /></label>
+          <label class="field"><span>官网 *</span><input data-key="url" type="url" placeholder="https://www.example.com" /></label>
+          <label class="field"><span>页面标题</span><input data-key="title" placeholder="例如：一站式协同办公平台" /></label>
+          <label class="field"><span>竞品 ID</span><input data-key="id" placeholder="comp-example" /></label>
+          <label class="field full"><span>竞品资料摘要</span><textarea data-key="content" rows="5" placeholder="可粘贴内部研究结论、关键能力、价格或性能信息。请注明数据时间和口径。"></textarea></label>
+        </div>
+      </article>
+    </template>
+
+    <template id="evidence-template">
+      <article class="repeat-card evidence-card">
+        <div class="repeat-card-heading"><span class="item-number"></span><strong class="item-title">可信事实</strong><button class="icon-button danger" type="button" data-remove aria-label="删除事实">×</button></div>
+        <div class="field-grid two-columns">
+          <label class="field"><span>事实 ID</span><input data-key="id" placeholder="fact-product-performance" /></label>
+          <label class="field"><span>核验日期</span><input data-key="verifiedAt" type="date" /></label>
+          <label class="field full"><span>来源链接 / 内部文档地址</span><input data-key="sourceUrl" placeholder="https://… 或内部文档地址" /></label>
+          <label class="field full"><span>已核验事实</span><textarea data-key="fact" rows="4" placeholder="清楚写明数据、适用范围与限制，避免把单一客户案例写成通用承诺。"></textarea></label>
+        </div>
+      </article>
+    </template>
+
+    <template id="standard-template">
+      <article class="repeat-card standard-card">
+        <div class="repeat-card-heading"><span class="item-number"></span><strong class="item-title">优化标准</strong><button class="icon-button danger" type="button" data-remove aria-label="删除标准">×</button></div>
+        <div class="field-grid two-columns">
+          <label class="field"><span>标准 ID</span><input data-key="id" /></label>
+          <label class="field"><span>标准名称</span><input data-key="name" /></label>
+          <label class="field full"><span>说明</span><textarea data-key="desc" rows="2"></textarea></label>
+          <label class="field full"><span>探测正则</span><input data-key="probe" /></label>
+          <label class="field"><span>处理方式</span><select data-key="actionable"><option value="">默认</option><option value="content">内容优化</option><option value="research">补充研究</option></select></label>
+          <label class="field"><span>权重</span><input data-key="weight" type="number" min="0" max="1" step="0.1" /></label>
+        </div>
+      </article>
+    </template>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

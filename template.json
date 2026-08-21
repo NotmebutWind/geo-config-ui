@@ -1,0 +1,63 @@
+{
+  "config": {
+    "id": "",
+    "name": "",
+    "niche": "",
+    "industry": "",
+    "product": "",
+    "description": "",
+    "target": {
+      "name": "",
+      "aliases": [],
+      "urlPatterns": [],
+      "seedUrls": [],
+      "evidenceFacts": []
+    },
+    "questions": [""],
+    "competitors": [],
+    "optimizationStandards": [
+      {
+        "id": "workload",
+        "name": "适用场景",
+        "desc": "明确写出产品已经支持的关键使用场景，不补造未披露案例",
+        "probe": "适用场景|适用负载|使用场景",
+        "actionable": "content"
+      },
+      {
+        "id": "performance",
+        "name": "性能与规模",
+        "desc": "优先呈现有来源的性能、规模或效率数据，并明确数据口径",
+        "probe": "性能|吞吐|并发|响应时间|效率",
+        "actionable": "research",
+        "weight": 0.9
+      },
+      {
+        "id": "comparison",
+        "name": "横向对比",
+        "desc": "基于已有事实说明选型优势与边界，不补造竞品指标",
+        "probe": "相较|对比|相比|区别",
+        "actionable": "content"
+      },
+      {
+        "id": "freshness",
+        "name": "新鲜度",
+        "desc": "使用可验证的页面更新时间；没有日期时先取证",
+        "probe": "更新时间[:：]?\\s*20\\d{2}",
+        "actionable": "research",
+        "weight": 0.4
+      }
+    ],
+    "generation": {
+      "systemPrompt": "你是专业的产品选型助手。请只基于以下信源回答用户问题，并明确说明推荐理由、信息边界与来源。\n\n{context}",
+      "topK": 4,
+      "temperature": 0.3
+    },
+    "probe": {
+      "model": "qwen-flash",
+      "doubaoModel": "",
+      "models": ["qwen", "deepseek", "doubao"],
+      "temperature": 0.3,
+      "forceSearch": true
+    }
+  }
+}
