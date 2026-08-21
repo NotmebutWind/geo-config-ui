@@ -46,6 +46,8 @@
           </div>
           <div class="topbar-actions">
             <span id="draft-status" class="draft-status">草稿已自动保存</span>
+            <button id="upload-machine-config" type="button" class="button secondary">↑ 审核机器配置</button>
+            <input id="machine-config-file" type="file" accept="application/json,.json" hidden />
             <button id="new-config" type="button" class="button secondary">＋ 新建另一份</button>
           </div>
         </header>
@@ -82,7 +84,7 @@
 
             <section id="competitors" class="form-section" data-section="竞品信息">
               <div class="section-heading">
-                <div><span class="step-tag">STEP 03</span><h2>竞品信息</h2><p>竞品会作为对照进入测评。可以先只填名称和官网，后续再补资料。</p></div>
+                <div><span class="step-tag">STEP 03</span><h2>竞品信息</h2><p>每个竞品可以填写多个官网、产品页或文档 URL。摘要可以手填，也可以由私有服务端抓取后生成。</p></div>
                 <button class="button small secondary" type="button" data-add="competitors">＋ 添加竞品</button>
               </div>
               <div id="competitors-list" class="repeat-list"></div>
@@ -99,17 +101,25 @@
 
             <section id="evidence" class="form-section" data-section="内部证据">
               <div class="section-heading">
-                <div><span class="step-tag">STEP 05</span><h2>内部文档与可信事实</h2><p>录入经过确认的客户案例、性能数据或合规信息。每条事实都保留来源和核验日期。</p></div>
-                <button class="button small secondary" type="button" data-add="evidenceFacts">＋ 添加事实</button>
+                <div><span class="step-tag">STEP 05 · 整块选填</span><h2>内部文档与可信事实</h2><p>没有内部资料可以直接跳过。资料来源和已核验事实分开管理，上传的附件只会进入本地 ZIP，不会提交到 GitHub 或公开服务器。</p></div>
               </div>
-              <div id="evidenceFacts-list" class="repeat-list"></div>
-              <div id="evidenceFacts-empty" class="empty-state"><span>◇</span><p>内部证据为可选项，可稍后补充</p></div>
+              <div class="evidence-group">
+                <div class="subheading"><div><h3>资料来源 <em>选填</em></h3><p>只粘贴 URL 或上传文件即可，暂时不要求写事实。</p></div><button class="button small secondary" type="button" data-add="evidenceSources">＋ 添加资料</button></div>
+                <div id="evidenceSources-list" class="repeat-list"></div>
+                <div id="evidenceSources-empty" class="empty-state compact-empty"><span>◇</span><p>还没有内部资料</p></div>
+              </div>
+              <div class="evidence-group">
+                <div class="subheading"><div><h3>已核验事实 <em>选填</em></h3><p>只有人工确认的内容才放这里；一旦填写事实，来源和核验日期必须同时填写。</p></div><button class="button small secondary" type="button" data-add="evidenceFacts">＋ 添加事实</button></div>
+                <div id="evidenceFacts-list" class="repeat-list"></div>
+                <div id="evidenceFacts-empty" class="empty-state compact-empty"><span>✓</span><p>还没有已核验事实</p></div>
+              </div>
             </section>
 
             <section id="advanced" class="form-section advanced-section" data-section="高级设置">
               <details>
-                <summary><span><span class="step-tag">STEP 06</span><strong>高级设置</strong><small>优化标准与模型参数，默认沿用主配置即可</small></span><span class="chevron">⌄</span></summary>
+                <summary><span><span class="step-tag">STEP 06 · 研发使用</span><strong>高级设置</strong><small>PM 无需点击；优化标准与模型参数由研发维护，使用默认值即可</small></span><span class="chevron">⌄</span></summary>
                 <div class="details-body">
+                  <div class="developer-note"><strong>PM 无需修改本区域</strong><span>错误的模型或提示词参数可能影响测评结果。只有研发人员确认后才调整。</span></div>
                   <div class="advanced-block">
                     <div class="subheading"><div><h3>优化标准</h3><p>用于检查内容是否覆盖关键选型维度。</p></div><button class="button small secondary" type="button" data-add="optimizationStandards">＋ 添加标准</button></div>
                     <div id="optimizationStandards-list" class="repeat-list compact"></div>
@@ -160,7 +170,10 @@
 
         <footer class="action-bar">
           <div><strong id="save-title">准备好后生成配置</strong><span id="save-subtitle">文件会写入项目的 config 目录</span></div>
-          <button id="save-config" type="button" class="button primary">生成 JSON 配置 <span>→</span></button>
+          <div class="action-buttons">
+            <button id="download-package" type="button" class="button secondary">下载离线资料包</button>
+            <button id="save-config" type="button" class="button primary">生成 JSON 配置 <span>→</span></button>
+          </div>
         </footer>
       </main>
     </div>
@@ -172,15 +185,45 @@
       <div class="dialog-actions"><button class="button secondary" type="button" data-close-dialog>返回编辑</button><button class="button primary" id="dialog-copy" type="button">复制 JSON</button></div>
     </dialog>
 
+    <dialog id="machine-review-dialog" class="review-dialog">
+      <div class="dialog-header"><div><p class="eyebrow">MACHINE CONFIG REVIEW</p><h2>审核机器生成信息</h2></div><button class="icon-button" type="button" data-close-machine-dialog aria-label="关闭">×</button></div>
+      <div class="machine-review-intro">
+        <strong>上传不会直接覆盖当前配置</strong>
+        <p>系统只读取竞品摘要、资料来源和可信事实。产品名称、问题、模型参数等用户填写内容不会被机器 JSON 改写。</p>
+      </div>
+      <div class="review-tools"><span id="machine-review-count">0 项待审核</span><button id="select-all-machine-items" class="text-button" type="button">全选</button></div>
+      <div id="machine-review-list" class="machine-review-list"></div>
+      <div class="dialog-actions"><button class="button secondary" type="button" data-close-machine-dialog>取消</button><button class="button primary" id="apply-machine-review" type="button">应用已核实项目</button></div>
+    </dialog>
+
     <template id="competitor-template">
       <article class="repeat-card competitor-card">
         <div class="repeat-card-heading"><span class="item-number"></span><strong class="item-title">新竞品</strong><button class="icon-button danger" type="button" data-remove aria-label="删除竞品">×</button></div>
         <div class="field-grid two-columns">
           <label class="field"><span>竞品名称 *</span><input data-key="name" placeholder="例如：钉钉" /></label>
-          <label class="field"><span>官网 *</span><input data-key="url" type="url" placeholder="https://www.example.com" /></label>
+          <label class="field"><span>主要官网</span><input data-key="url" type="url" placeholder="https://www.example.com" /><small>用于引用展示；留空时自动使用下面第一个 URL。</small></label>
           <label class="field"><span>页面标题</span><input data-key="title" placeholder="例如：一站式协同办公平台" /></label>
           <label class="field"><span>竞品 ID</span><input data-key="id" placeholder="comp-example" /></label>
-          <label class="field full"><span>竞品资料摘要</span><textarea data-key="content" rows="5" placeholder="可粘贴内部研究结论、关键能力、价格或性能信息。请注明数据时间和口径。"></textarea></label>
+          <label class="field full"><span>官网、产品页与文档 URL *</span><textarea data-key="seedUrls" data-array="lines" rows="4" placeholder="每行一个 URL，例如：&#10;https://www.example.com/&#10;https://docs.example.com/product"></textarea><small>支持多个 URL。公开页面只记录链接；私有服务端可以抓取并生成待审核摘要。</small></label>
+          <label class="field full"><span>竞品资料摘要 <em>选填</em></span><textarea data-key="content" rows="5" placeholder="可以手填，也可以点击下方按钮让私有服务端基于上述 URL 生成。机器生成内容需要 PM 确认。"></textarea></label>
+          <input data-key="contentStatus" type="hidden" />
+          <div class="card-actions full"><span class="summary-status" data-summary-status>尚未生成摘要</span><button class="button small secondary" type="button" data-fetch-competitor>从 URL 生成摘要</button><button class="button small secondary" type="button" data-confirm-summary>确认摘要</button></div>
+        </div>
+      </article>
+    </template>
+
+    <template id="evidence-source-template">
+      <article class="repeat-card evidence-card source-card">
+        <div class="repeat-card-heading"><span class="item-number"></span><strong class="item-title">内部资料</strong><button class="icon-button danger" type="button" data-remove aria-label="删除资料">×</button></div>
+        <div class="field-grid two-columns">
+          <label class="field"><span>资料 ID</span><input data-key="id" placeholder="source-product-report" /></label>
+          <label class="field"><span>资料说明 <em>选填</em></span><input data-key="description" placeholder="例如：2026 年性能测试报告" /></label>
+          <label class="field full"><span>内部文档 URL <em>URL 或文件至少一个</em></span><input data-key="url" type="url" placeholder="https://internal.example.com/document" /></label>
+          <label class="field full file-field"><span>上传本地文件 <em>不会上传网络</em></span><input data-attachment type="file" accept=".pdf,.doc,.docx,.txt,.md,.csv,.xls,.xlsx,.ppt,.pptx,application/pdf,text/plain" /><small data-file-status>支持 PDF、Office、TXT、Markdown、CSV；单个文件不超过 25MB。</small></label>
+          <input data-key="filePath" type="hidden" />
+          <input data-key="fileName" type="hidden" />
+          <input data-key="mimeType" type="hidden" />
+          <input data-key="status" type="hidden" />
         </div>
       </article>
     </template>
@@ -190,9 +233,10 @@
         <div class="repeat-card-heading"><span class="item-number"></span><strong class="item-title">可信事实</strong><button class="icon-button danger" type="button" data-remove aria-label="删除事实">×</button></div>
         <div class="field-grid two-columns">
           <label class="field"><span>事实 ID</span><input data-key="id" placeholder="fact-product-performance" /></label>
-          <label class="field"><span>核验日期</span><input data-key="verifiedAt" type="date" /></label>
-          <label class="field full"><span>来源链接 / 内部文档地址</span><input data-key="sourceUrl" placeholder="https://… 或内部文档地址" /></label>
-          <label class="field full"><span>已核验事实</span><textarea data-key="fact" rows="4" placeholder="清楚写明数据、适用范围与限制，避免把单一客户案例写成通用承诺。"></textarea></label>
+          <label class="field"><span>核验日期 *</span><input data-key="verifiedAt" type="date" /></label>
+          <label class="field full"><span>来源链接 / 资料包相对路径 *</span><input data-key="sourceUrl" placeholder="https://… 或 attachments/report.pdf" /></label>
+          <label class="field full"><span>已核验事实 *</span><textarea data-key="fact" rows="4" placeholder="清楚写明数据、适用范围与限制，避免把单一客户案例写成通用承诺。"></textarea></label>
+          <input data-key="status" type="hidden" />
         </div>
       </article>
     </template>
