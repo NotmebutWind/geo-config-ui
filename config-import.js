@@ -122,6 +122,52 @@ function normalizeFact(value, index) {
   };
 }
 
+// 以下三个 normalize 修复潜伏 bug（2026-08-29）：parseMachineConfigText 历史上从不提取
+// optimizationStandards/generation/probe，restoreBaseConfig 又只取模板 defaults——上传 config 的
+// 这三段被整个丢弃，页面永远渲染模板。server 端品类生成后 standards 成为每份 config 的真实差异点。
+function normalizeStandard(value, index) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const id = text(value.id, 100);
+  const name = text(value.name, 100);
+  if (!id && !name) return null;
+  const weight = Number(value.weight);
+  return {
+    id: id || `std-imported-${index + 1}`,
+    name,
+    desc: text(value.desc, 2000),
+    probe: text(value.probe, 1000),
+    actionable: ['content', 'research'].includes(value.actionable) ? value.actionable : '',
+    ...(Number.isFinite(weight) ? { weight: Math.min(1, Math.max(0, weight)) } : {})
+  };
+}
+
+function normalizeGeneration(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const out = {};
+  const systemPrompt = text(value.systemPrompt, 10000);
+  if (systemPrompt) out.systemPrompt = systemPrompt;
+  const topK = Number(value.topK);
+  if (Number.isFinite(topK) && topK > 0) out.topK = Math.min(20, Math.floor(topK));
+  const temperature = Number(value.temperature);
+  if (Number.isFinite(temperature)) out.temperature = Math.min(2, Math.max(0, temperature));
+  return Object.keys(out).length ? out : null;
+}
+
+function normalizeProbe(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const out = {};
+  const model = text(value.model, 200);
+  const doubaoModel = text(value.doubaoModel, 200);
+  if (model) out.model = model;
+  if (doubaoModel) out.doubaoModel = doubaoModel;
+  const models = textList(value.models, 10, 100);
+  if (models.length) out.models = models;
+  const temperature = Number(value.temperature);
+  if (Number.isFinite(temperature)) out.temperature = Math.min(2, Math.max(0, temperature));
+  if (typeof value.forceSearch === 'boolean') out.forceSearch = value.forceSearch;
+  return Object.keys(out).length ? out : null;
+}
+
 export function parseMachineConfigText(source) {
   if (typeof source !== 'string') throw new ConfigImportError('请选择 JSON 文本文件');
   if (new TextEncoder().encode(source).byteLength > MAX_JSON_BYTES) throw new ConfigImportError('JSON 文件不能超过 2MB');
@@ -152,7 +198,10 @@ export function parseMachineConfigText(source) {
       evidenceFacts: (Array.isArray(target.evidenceFacts) ? target.evidenceFacts : []).map(normalizeFact).filter(Boolean).slice(0, 300)
     },
     questions: textList(raw.questions, 100, 5000),
-    competitors: (Array.isArray(raw.competitors) ? raw.competitors : []).map(normalizeCompetitor).filter(Boolean).slice(0, 100)
+    competitors: (Array.isArray(raw.competitors) ? raw.competitors : []).map(normalizeCompetitor).filter(Boolean).slice(0, 100),
+    optimizationStandards: (Array.isArray(raw.optimizationStandards) ? raw.optimizationStandards : []).map(normalizeStandard).filter(Boolean).slice(0, 50),
+    ...(normalizeGeneration(raw.generation) ? { generation: normalizeGeneration(raw.generation) } : {}),
+    ...(normalizeProbe(raw.probe) ? { probe: normalizeProbe(raw.probe) } : {})
   };
 }
 
@@ -237,9 +286,11 @@ export function restoreBaseConfig(uploaded, defaults = {}) {
       content: '',
       contentStatus: 'empty'
     })),
-    optimizationStandards: Array.isArray(defaults.optimizationStandards) ? defaults.optimizationStandards : [],
-    generation: defaults.generation || {},
-    probe: defaults.probe || {}
+    optimizationStandards: (Array.isArray(uploaded.optimizationStandards) && uploaded.optimizationStandards.length)
+      ? uploaded.optimizationStandards
+      : (Array.isArray(defaults.optimizationStandards) ? defaults.optimizationStandards : []),
+    generation: uploaded.generation || defaults.generation || {},
+    probe: uploaded.probe || defaults.probe || {}
   };
 }
 
