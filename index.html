@@ -76,7 +76,7 @@
               <div class="field-grid two-columns">
                 <label class="field"><span>目标产品名 *</span><input name="target.name" required placeholder="例如：飞书" /></label>
                 <label class="field"><span>产品别名 *</span><input name="target.aliases" required placeholder="飞书, Feishu, Lark" /><small>多个名称用逗号分隔。</small></label>
-                <label class="field full"><span>官方域名 *</span><input name="target.urlPatterns" required placeholder="feishu.cn, larksuite.com" /><small>无需填写 https://，多个域名用逗号分隔。</small></label>
+                <label class="field full"><span>官方域名 <em>选填，无官网可留空</em></span><input name="target.urlPatterns" placeholder="feishu.cn, larksuite.com" /><small>无需填写 https://，多个域名用逗号分隔。留空时检索可见性按名称提及归因（第三方论坛/商城/博客均计入）。</small></label>
                 <fieldset class="field full source-choice">
                   <legend>官方资料来源 *（三选一）</legend>
                   <div class="source-options">
@@ -223,7 +223,8 @@
         <div class="repeat-card-heading"><span class="item-number"></span><strong class="item-title">新竞品</strong><button class="icon-button danger" type="button" data-remove aria-label="删除竞品">×</button></div>
         <div class="field-grid two-columns">
           <label class="field"><span>竞品名称 *</span><input data-key="name" placeholder="例如：钉钉" /></label>
-          <label class="field"><span>主要官网</span><input data-key="url" type="url" placeholder="https://www.example.com" /><small>用于引用展示；留空时自动使用下面第一个 URL。</small></label>
+          <label class="field"><span>竞品别名 <em>选填</em></span><input data-key="aliases" data-array="comma" placeholder="钉钉, DingTalk" /><small>多个用逗号分隔；用于搜索源与复述内容的提及归因。</small></label>
+          <label class="field"><span>主要官网</span><input data-key="url" type="url" placeholder="https://www.example.com" /><small>用于引用展示与官方域归因；留空时自动使用下面第一个 URL。</small></label>
           <label class="field"><span>页面标题</span><input data-key="title" placeholder="例如：一站式协同办公平台" /></label>
           <label class="field"><span>竞品 ID</span><input data-key="id" placeholder="comp-example" /></label>
           <label class="field full"><span>官网、产品页与文档 URL *</span><textarea data-key="seedUrls" data-array="lines" rows="4" placeholder="每行一个 URL，例如：&#10;https://www.example.com/&#10;https://docs.example.com/product"></textarea><small>支持多个 URL。公开页面只记录链接；私有服务端可以抓取并生成待审核摘要。</small></label>

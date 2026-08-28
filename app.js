@@ -343,7 +343,7 @@ function renderCards(listName, items, templateId, containerId) {
     card.dataset.index = String(index);
     $$('[data-key]', card).forEach((field) => {
       const value = item[field.dataset.key];
-      field.value = Array.isArray(value) ? value.join('\n') : value ?? '';
+      field.value = Array.isArray(value) ? value.join(field.dataset.array === 'lines' ? '\n' : ', ') : value ?? '';
     });
     $('[data-remove]', card).addEventListener('click', () => {
       const id = $('[data-key="id"]', card)?.value;
@@ -405,7 +405,7 @@ function syncStateFromDom() {
 
 const completionGroups = [
   ['项目概览', ['name', 'id', 'niche', 'industry', 'product', 'description']],
-  ['目标产品', ['target.name', 'target.aliases', 'target.urlPatterns', 'target.officialSource']]
+  ['目标产品', ['target.name', 'target.aliases', 'target.officialSource']]
 ];
 
 function isFieldComplete(name) {

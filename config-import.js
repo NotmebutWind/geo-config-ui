@@ -78,6 +78,7 @@ function normalizeCompetitor(value, index) {
   return {
     id: text(value.id, 160) || `comp-imported-${index + 1}`,
     name,
+    aliases: textList(value.aliases, 20, 300),
     url: httpUrl(value.url) || seedUrls[0] || '',
     seedUrls,
     title: text(value.title, 1000),
@@ -280,6 +281,7 @@ export function restoreBaseConfig(uploaded, defaults = {}) {
     competitors: uploaded.competitors.map((competitor) => ({
       id: competitor.id,
       name: competitor.name,
+      aliases: competitor.aliases,
       url: competitor.url,
       seedUrls: competitor.seedUrls,
       title: '',
@@ -315,6 +317,7 @@ export function applyReviewPlan(current, plan, selectedKeys) {
       const reviewed = {
         id: existing?.id || incoming.id,
         name: existing?.name || incoming.name,
+        aliases: unique([...(existing?.aliases || []), ...(incoming.aliases || [])]),
         url: existing?.url || incoming.url || incoming.seedUrls[0] || '',
         seedUrls: unique([...(existing?.seedUrls || []), ...incoming.seedUrls]),
         title: incoming.title || existing?.title || '',
