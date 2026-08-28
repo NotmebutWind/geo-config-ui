@@ -15,6 +15,7 @@ const state = {
   evidenceSources: [],
   evidenceFacts: [],
   optimizationStandards: [],
+  officialDocs: [],
   attachments: new Map(),
   machinePlan: null,
   editingFileName: null,
@@ -51,6 +52,19 @@ function newId(prefix) {
 
 function getField(name) {
   return form.elements.namedItem(name);
+}
+
+function currentSourceMode() {
+  const value = getField('target.sourceMode')?.value;
+  return ['urls', 'docs', 'content'].includes(value) ? value : 'urls';
+}
+
+function updateSourcePanels() {
+  const mode = currentSourceMode();
+  $$('[data-source-panel]').forEach((panel) => {
+    panel.hidden = panel.dataset.sourcePanel !== mode;
+    if (panel.hidden) $$('.invalid', panel).forEach((field) => field.classList.remove('invalid'));
+  });
 }
 
 function setField(name, value) {
@@ -93,6 +107,7 @@ function normalizedCompetitors() {
 }
 
 function buildConfig() {
+  const sourceMode = currentSourceMode();
   const config = {
     id: getField('id').value.trim(),
     name: getField('name').value.trim(),
@@ -104,7 +119,7 @@ function buildConfig() {
       name: getField('target.name').value.trim(),
       aliases: splitComma(getField('target.aliases').value),
       urlPatterns: splitComma(getField('target.urlPatterns').value),
-      seedUrls: splitLines(getField('target.seedUrls').value),
+      seedUrls: sourceMode === 'urls' ? splitLines(getField('target.seedUrls').value) : [],
       evidenceSources: readRepeatCards('evidenceSources'),
       evidenceFacts: readRepeatCards('evidenceFacts')
     },
@@ -124,6 +139,8 @@ function buildConfig() {
       forceSearch: getField('probe.forceSearch').checked
     }
   };
+  if (sourceMode === 'docs') config.target.officialDocs = state.officialDocs.map((doc) => ({ ...doc }));
+  if (sourceMode === 'content') config.target.officialContent = getField('target.officialContent').value.trim();
   const searchQueries = splitLines(getField('target.searchQueries').value);
   if (searchQueries.length) config.target.searchQueries = searchQueries;
   return config;
@@ -149,6 +166,7 @@ function fillForm(config = {}) {
     'target.aliases': target.aliases,
     'target.urlPatterns': target.urlPatterns,
     'target.seedUrls': target.seedUrls,
+    'target.officialContent': target.officialContent,
     'target.searchQueries': target.searchQueries,
     'generation.systemPrompt': config.generation?.systemPrompt,
     'generation.topK': config.generation?.topK ?? 4,
@@ -165,8 +183,16 @@ function fillForm(config = {}) {
   state.evidenceSources = deepClone(Array.isArray(target.evidenceSources) ? target.evidenceSources : []);
   state.evidenceFacts = deepClone(Array.isArray(target.evidenceFacts) ? target.evidenceFacts : []);
   state.optimizationStandards = deepClone(Array.isArray(config.optimizationStandards) ? config.optimizationStandards : []);
+  state.officialDocs = deepClone(Array.isArray(target.officialDocs) ? target.officialDocs : []);
   state.attachments.clear();
+  const sourceModeField = getField('target.sourceMode');
+  if (sourceModeField) {
+    const inferred = target.seedUrls?.length ? 'urls' : state.officialDocs.length ? 'docs' : String(target.officialContent || '').trim() ? 'content' : 'urls';
+    sourceModeField.value = inferred;
+  }
   renderAllLists();
+  renderOfficialDocs();
+  updateSourcePanels();
   updatePreview();
 }
 
@@ -213,6 +239,82 @@ function setupEvidenceSourceCard(card, item) {
       showToast('附件未加入', error.message, 'error');
     }
   });
+}
+
+function renderOfficialDocs() {
+  const list = $('#official-docs-list');
+  list.innerHTML = '';
+  state.officialDocs.forEach((doc) => {
+    const item = document.createElement('li');
+    item.className = 'doc-item';
+    const file = state.attachments.get(doc.id);
+    const name = document.createElement('span');
+    name.className = 'doc-name';
+    name.textContent = doc.fileName || doc.filePath || doc.id;
+    const status = document.createElement('small');
+    if (file) {
+      status.textContent = `${(file.size / 1048576).toFixed(1)}MB · 只写入本地 ZIP`;
+    } else {
+      status.textContent = '浏览器不保存文件，请移除后重新选择';
+      status.className = 'doc-stale';
+    }
+    const remove = document.createElement('button');
+    remove.className = 'icon-button danger';
+    remove.type = 'button';
+    remove.setAttribute('aria-label', `移除文档 ${doc.fileName || doc.id}`);
+    remove.textContent = '×';
+    remove.addEventListener('click', () => {
+      state.attachments.delete(doc.id);
+      state.officialDocs = state.officialDocs.filter((entry) => entry.id !== doc.id);
+      renderOfficialDocs();
+      onFormChange();
+    });
+    item.append(name, status, remove);
+    list.append(item);
+  });
+}
+
+function addOfficialDocFiles(fileList) {
+  const rejected = [];
+  for (const file of [...(fileList || [])]) {
+    try {
+      validateAttachment(file);
+      const id = newId('doc');
+      state.attachments.set(id, file);
+      state.officialDocs.push({ id, fileName: file.name, mimeType: file.type || 'application/octet-stream', status: 'pending' });
+    } catch (error) {
+      rejected.push(`${file.name}：${error.message}`);
+    }
+  }
+  renderOfficialDocs();
+  onFormChange();
+  if (rejected.length) showToast('部分文件未加入', rejected.join('；'), 'error');
+}
+
+function setupOfficialDocsDropZone() {
+  const drop = $('#official-docs-drop');
+  const input = $('#official-docs-input');
+  if (!drop || !input) return;
+  drop.addEventListener('click', () => input.click());
+  drop.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      input.click();
+    }
+  });
+  input.addEventListener('change', () => {
+    addOfficialDocFiles(input.files);
+    input.value = '';
+  });
+  ['dragenter', 'dragover'].forEach((type) => drop.addEventListener(type, (event) => {
+    event.preventDefault();
+    drop.classList.add('drag-over');
+  }));
+  ['dragleave', 'drop'].forEach((type) => drop.addEventListener(type, (event) => {
+    event.preventDefault();
+    drop.classList.remove('drag-over');
+  }));
+  drop.addEventListener('drop', (event) => addOfficialDocFiles(event.dataTransfer?.files));
 }
 
 function setupCompetitorCard(card, item, index) {
@@ -303,12 +405,20 @@ function syncStateFromDom() {
 
 const completionGroups = [
   ['项目概览', ['name', 'id', 'niche', 'industry', 'product', 'description']],
-  ['目标产品', ['target.name', 'target.aliases', 'target.urlPatterns', 'target.seedUrls']]
+  ['目标产品', ['target.name', 'target.aliases', 'target.urlPatterns', 'target.officialSource']]
 ];
+
+function isFieldComplete(name) {
+  if (name !== 'target.officialSource') return Boolean(getField(name)?.value.trim());
+  const mode = currentSourceMode();
+  if (mode === 'docs') return state.officialDocs.length > 0 && state.officialDocs.every((doc) => state.attachments.has(doc.id));
+  if (mode === 'content') return Boolean(getField('target.officialContent').value.trim());
+  return Boolean(getField('target.seedUrls').value.trim());
+}
 
 function updateCompletion() {
   const results = completionGroups.map(([label, names]) => {
-    const completed = names.filter((name) => getField(name).value.trim()).length;
+    const completed = names.filter(isFieldComplete).length;
     return { label, completed, total: names.length, done: completed === names.length };
   });
   const completed = results.reduce((sum, result) => sum + result.completed, 0);
@@ -386,31 +496,44 @@ async function sha256(file) {
 async function downloadOfflinePackage() {
   if (!validateForm()) return false;
   syncStateFromDom();
-  const total = [...state.attachments.values()].reduce((sum, file) => sum + file.size, 0);
-  if (total > MAX_PACKAGE_BYTES) throw new Error('资料包附件总大小不能超过 75MB');
   const config = buildConfig();
+  const referencedIds = new Set([
+    ...config.target.evidenceSources.map((source) => source.id),
+    ...(config.target.officialDocs || []).map((doc) => doc.id)
+  ]);
+  const total = [...referencedIds].reduce((sum, id) => sum + (state.attachments.get(id)?.size || 0), 0);
+  if (total > MAX_PACKAGE_BYTES) throw new Error('资料包附件总大小不能超过 75MB');
   const entries = [];
   const manifestEntries = [];
   const usedPaths = new Set();
+  const packAttachment = async ({ id, fileName, label, manifestKey }) => {
+    const file = state.attachments.get(id);
+    if (!file) throw new Error(`${label}“${fileName || id}”需要重新选择原文件后才能打包`);
+    let archiveName = `${safeArchiveName(id, manifestKey)}-${safeArchiveName(file.name)}`;
+    let path = `attachments/${archiveName}`;
+    let suffix = 2;
+    while (usedPaths.has(path)) {
+      archiveName = `${safeArchiveName(id, manifestKey)}-${suffix}-${safeArchiveName(file.name)}`;
+      path = `attachments/${archiveName}`;
+      suffix += 1;
+    }
+    usedPaths.add(path);
+    const checksum = await sha256(file);
+    const meta = { type: 'file', filePath: path, fileName: file.name, mimeType: file.type || 'application/octet-stream', size: file.size, sha256: checksum, status: 'pending' };
+    manifestEntries.push({ [manifestKey]: id, originalName: file.name, path, size: file.size, mimeType: meta.mimeType, sha256: checksum });
+    entries.push({ name: path, data: file, date: new Date(file.lastModified) });
+    return meta;
+  };
   for (const source of config.target.evidenceSources) {
     const file = state.attachments.get(source.id);
     if (!file) {
       if (source.type === 'file' || source.filePath) throw new Error(`资料“${source.description || source.id}”需要重新选择原文件后才能打包`);
       continue;
     }
-    let fileName = `${safeArchiveName(source.id, 'source')}-${safeArchiveName(file.name)}`;
-    let path = `attachments/${fileName}`;
-    let suffix = 2;
-    while (usedPaths.has(path)) {
-      fileName = `${safeArchiveName(source.id, 'source')}-${suffix}-${safeArchiveName(file.name)}`;
-      path = `attachments/${fileName}`;
-      suffix += 1;
-    }
-    usedPaths.add(path);
-    const checksum = await sha256(file);
-    Object.assign(source, { type: 'file', filePath: path, fileName: file.name, mimeType: file.type || 'application/octet-stream', size: file.size, sha256: checksum, status: 'pending' });
-    manifestEntries.push({ sourceId: source.id, originalName: file.name, path, size: file.size, mimeType: source.mimeType, sha256: checksum });
-    entries.push({ name: path, data: file, date: new Date(file.lastModified) });
+    Object.assign(source, await packAttachment({ id: source.id, fileName: file.name, label: '资料', manifestKey: 'sourceId' }));
+  }
+  for (const doc of config.target.officialDocs || []) {
+    Object.assign(doc, await packAttachment({ id: doc.id, fileName: doc.fileName, label: '官方文档', manifestKey: 'docId' }));
   }
   const configPath = `config/${currentFileName()}`;
   const manifest = {
@@ -449,6 +572,7 @@ function onFormChange(event) {
       getField('target.name').dataset.synced = 'true';
     }
   }
+  if (event?.target?.name === 'target.sourceMode') updateSourcePanels();
   syncStateFromDom();
   updateItemHeadings('competitors');
   updateItemHeadings('evidenceSources');
@@ -489,11 +613,31 @@ function validateForm() {
     return false;
   }
   let firstInvalid = null;
+  let firstInvalidHint = '';
   $$('[required]', form).forEach((field) => {
     const invalid = !field.value.trim();
     field.classList.toggle('invalid', invalid);
     if (invalid && !firstInvalid) firstInvalid = field;
   });
+  const sourceMode = currentSourceMode();
+  if (sourceMode === 'docs') {
+    const drop = $('#official-docs-drop');
+    const missingFile = state.officialDocs.some((doc) => !state.attachments.has(doc.id));
+    const invalid = !state.officialDocs.length || missingFile;
+    drop.classList.toggle('invalid', invalid);
+    if (invalid && !firstInvalid) {
+      firstInvalid = drop;
+      firstInvalidHint = state.officialDocs.length ? '有官方文档缺少原文件，请移除后重新拖拽上传。' : '请至少上传一份官方文档，或改用其他资料形式。';
+    }
+  } else {
+    const field = getField(sourceMode === 'content' ? 'target.officialContent' : 'target.seedUrls');
+    const invalid = !field.value.trim();
+    field.classList.toggle('invalid', invalid);
+    if (invalid && !firstInvalid) {
+      firstInvalid = field;
+      firstInvalidHint = sourceMode === 'content' ? '请填写官方内容，或改用其他资料形式。' : '请填写至少一个官网或官方文档 URL，或改用其他资料形式。';
+    }
+  }
   $$('[data-list="competitors"]', form).forEach((card) => {
     const name = $('[data-key="name"]', card);
     const urls = $('[data-key="seedUrls"]', card);
@@ -522,7 +666,7 @@ function validateForm() {
   if (firstInvalid) {
     firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
     firstInvalid.focus({ preventScroll: true });
-    showToast('还有信息需要检查', '已定位到第一个缺失或不完整的项目。', 'error');
+    showToast('还有信息需要检查', firstInvalidHint || '已定位到第一个缺失或不完整的项目。', 'error');
     return false;
   }
   return true;
@@ -760,6 +904,7 @@ async function init() {
 
 form.addEventListener('input', onFormChange);
 form.addEventListener('change', onFormChange);
+setupOfficialDocsDropZone();
 getField('target.name').addEventListener('input', () => { getField('target.name').dataset.synced = 'false'; });
 $$('[data-add]').forEach((button) => button.addEventListener('click', () => addItem(button.dataset.add)));
 $('#save-config').addEventListener('click', saveConfig);

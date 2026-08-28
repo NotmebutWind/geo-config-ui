@@ -146,6 +146,7 @@ export function parseMachineConfigText(source) {
       aliases: textList(target.aliases, 50, 300),
       urlPatterns: textList(target.urlPatterns, 50, 500),
       seedUrls: unique((Array.isArray(target.seedUrls) ? target.seedUrls : []).map(httpUrl)).slice(0, 50),
+      officialContent: text(target.officialContent, 100000),
       searchQueries: textList(target.searchQueries, 100, 2000),
       evidenceSources: (Array.isArray(target.evidenceSources) ? target.evidenceSources : []).map(normalizeSource).filter(Boolean).slice(0, 200),
       evidenceFacts: (Array.isArray(target.evidenceFacts) ? target.evidenceFacts : []).map(normalizeFact).filter(Boolean).slice(0, 300)
@@ -221,6 +222,7 @@ export function restoreBaseConfig(uploaded, defaults = {}) {
       aliases: uploaded.target.aliases,
       urlPatterns: uploaded.target.urlPatterns,
       seedUrls: uploaded.target.seedUrls,
+      ...(uploaded.target.officialContent ? { officialContent: uploaded.target.officialContent } : {}),
       ...(uploaded.target.searchQueries.length ? { searchQueries: uploaded.target.searchQueries } : {}),
       evidenceSources: [],
       evidenceFacts: []

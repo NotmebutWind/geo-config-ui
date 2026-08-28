@@ -71,13 +71,34 @@
 
             <section id="target" class="form-section" data-section="目标产品">
               <div class="section-heading">
-                <div><span class="step-tag">STEP 02</span><h2>目标产品资料</h2><p>优先填写官网与官方文档，这些页面是系统理解产品的核心信源。</p></div>
+                <div><span class="step-tag">STEP 02</span><h2>目标产品资料</h2><p>官网链接、官方文档或手填内容三选一，作为系统理解产品的核心信源；没有官网的产品也能直接开始。</p></div>
               </div>
               <div class="field-grid two-columns">
                 <label class="field"><span>目标产品名 *</span><input name="target.name" required placeholder="例如：飞书" /></label>
                 <label class="field"><span>产品别名 *</span><input name="target.aliases" required placeholder="飞书, Feishu, Lark" /><small>多个名称用逗号分隔。</small></label>
                 <label class="field full"><span>官方域名 *</span><input name="target.urlPatterns" required placeholder="feishu.cn, larksuite.com" /><small>无需填写 https://，多个域名用逗号分隔。</small></label>
-                <label class="field full"><span>产品官网与官方文档 *</span><textarea name="target.seedUrls" required rows="4" placeholder="每行一个 URL，例如：&#10;https://www.example.com/product&#10;https://docs.example.com/start"></textarea><small>系统默认会从这些页面提取产品信息。</small></label>
+                <fieldset class="field full source-choice">
+                  <legend>官方资料来源 *（三选一）</legend>
+                  <div class="source-options">
+                    <label class="source-option"><input type="radio" name="target.sourceMode" value="urls" checked /><span><strong>官网 / 官方文档链接</strong><small>产品已有公开页面，每行一个 URL，可以多个。</small></span></label>
+                    <label class="source-option"><input type="radio" name="target.sourceMode" value="docs" /><span><strong>上传官方文档</strong><small>没有公开页面时直接上传官方介绍文件，可拖拽、可多个。与第 05 步内部文档不冲突，内部文档可以更详细。</small></span></label>
+                    <label class="source-option"><input type="radio" name="target.sourceMode" value="content" /><span><strong>手动填写官方内容</strong><small>既没有官网也没有文件时，由客户或 PM 手动整理产品官方介绍。</small></span></label>
+                  </div>
+                  <div class="source-panel" data-source-panel="urls">
+                    <label class="field full"><span>产品官网与官方文档 URL *</span><textarea name="target.seedUrls" rows="4" placeholder="每行一个 URL，例如：&#10;https://www.example.com/product&#10;https://docs.example.com/start"></textarea><small>系统默认会从这些页面提取产品信息。</small></label>
+                  </div>
+                  <div class="source-panel" data-source-panel="docs" hidden>
+                    <div id="official-docs-drop" class="drop-zone" role="button" tabindex="0" aria-label="上传官方文档">
+                      <strong>拖拽官方文档到这里，或点击选择文件</strong>
+                      <small>支持 PDF、Office、TXT、Markdown、CSV；可一次多个，单个不超过 25MB。文件只写入本地 ZIP，不会上传网络。</small>
+                    </div>
+                    <input id="official-docs-input" type="file" multiple hidden accept=".pdf,.doc,.docx,.txt,.md,.csv,.xls,.xlsx,.ppt,.pptx,application/pdf,text/plain" />
+                    <ul id="official-docs-list" class="doc-list"></ul>
+                  </div>
+                  <div class="source-panel" data-source-panel="content" hidden>
+                    <label class="field full"><span>官方内容 *</span><textarea name="target.officialContent" rows="8" placeholder="粘贴或整理产品的官方介绍：产品定位、核心能力、适用场景、规格参数等。"></textarea><small>没有官网和文件时的兜底方式；内容会作为系统理解产品的官方底稿。</small></label>
+                  </div>
+                </fieldset>
                 <label class="field full"><span>自定义搜索词 <em>可选</em></span><textarea name="target.searchQueries" rows="3" placeholder="每行一个完整搜索词。留空时系统会根据产品名和赛道关键词自动生成。"></textarea></label>
               </div>
             </section>
