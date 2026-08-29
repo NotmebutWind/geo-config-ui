@@ -17,6 +17,7 @@ const state = {
   optimizationStandards: [],
   officialDocs: [],
   attachments: new Map(),
+  preservedOfficial: null,
   machinePlan: null,
   editingFileName: null,
   staticMode: false,
@@ -108,6 +109,10 @@ function normalizedCompetitors() {
 
 function buildConfig() {
   const sourceMode = currentSourceMode();
+  // 多源配置的文本形式保留（review 修复：模式推断曾静默裁字段）——服务端契约是"至少其一"不互斥，
+  // 导入 seedUrls + officialContent 并存的合法配置时，非当前编辑模式的文本字段随配置保留。
+  // 官方文档附件不在此列：浏览器不保存文件，需切到「上传官方文档」模式重新选择（state.officialDocs 全程展示）。
+  const preserved = state.preservedOfficial || {};
   const config = {
     id: getField('id').value.trim(),
     name: getField('name').value.trim(),
@@ -119,7 +124,7 @@ function buildConfig() {
       name: getField('target.name').value.trim(),
       aliases: splitComma(getField('target.aliases').value),
       urlPatterns: splitComma(getField('target.urlPatterns').value),
-      seedUrls: sourceMode === 'urls' ? splitLines(getField('target.seedUrls').value) : [],
+      seedUrls: sourceMode === 'urls' ? splitLines(getField('target.seedUrls').value) : (preserved.seedUrls || []),
       evidenceSources: readRepeatCards('evidenceSources'),
       evidenceFacts: readRepeatCards('evidenceFacts')
     },
@@ -140,7 +145,10 @@ function buildConfig() {
     }
   };
   if (sourceMode === 'docs') config.target.officialDocs = state.officialDocs.map((doc) => ({ ...doc }));
-  if (sourceMode === 'content') config.target.officialContent = getField('target.officialContent').value.trim();
+  const officialContent = sourceMode === 'content'
+    ? getField('target.officialContent').value.trim()
+    : String(preserved.officialContent || '').trim();
+  if (officialContent) config.target.officialContent = officialContent;
   const searchQueries = splitLines(getField('target.searchQueries').value);
   if (searchQueries.length) config.target.searchQueries = searchQueries;
   return config;
@@ -185,10 +193,18 @@ function fillForm(config = {}) {
   state.optimizationStandards = deepClone(Array.isArray(config.optimizationStandards) ? config.optimizationStandards : []);
   state.officialDocs = deepClone(Array.isArray(target.officialDocs) ? target.officialDocs : []);
   state.attachments.clear();
+  state.preservedOfficial = {
+    seedUrls: Array.isArray(target.seedUrls) ? [...target.seedUrls] : [],
+    officialContent: String(target.officialContent || '')
+  };
   const sourceModeField = getField('target.sourceMode');
   if (sourceModeField) {
     const inferred = target.seedUrls?.length ? 'urls' : state.officialDocs.length ? 'docs' : String(target.officialContent || '').trim() ? 'content' : 'urls';
     sourceModeField.value = inferred;
+    const modesPresent = [target.seedUrls?.length, state.officialDocs.length, String(target.officialContent || '').trim()].filter(Boolean).length;
+    if (modesPresent > 1) {
+      showToast('这份配置包含多种官方资料形式', `页面以「${inferred === 'urls' ? '官网链接' : inferred === 'docs' ? '上传官方文档' : '手填内容'}」模式编辑；其余文本形式内容已在配置中保留，上传的官方文档需在文档模式重新选择原文件。`);
+    }
   }
   renderAllLists();
   renderOfficialDocs();

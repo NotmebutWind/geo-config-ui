@@ -123,6 +123,24 @@ function normalizeFact(value, index) {
   };
 }
 
+/** 官方文档条目（officialDocs）：附件引用白名单——filePath 必填，其余元数据透传（文件本体不进 JSON）。 */
+function normalizeDoc(value, index) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const rawPath = text(value.filePath, 2000).replace(/\\/g, '/').replace(/^\/+/, '');
+  const filePath = rawPath.split('/').some((part) => part === '..') ? '' : rawPath;
+  if (!filePath) return null;
+  return {
+    id: text(value.id, 160) || `doc-imported-${index + 1}`,
+    type: 'file',
+    fileName: text(value.fileName, 500),
+    filePath,
+    mimeType: text(value.mimeType, 200),
+    size: Number.isFinite(value.size) && value.size >= 0 ? Math.floor(value.size) : undefined,
+    sha256: /^[a-f0-9]{64}$/i.test(text(value.sha256, 64)) ? text(value.sha256, 64).toLowerCase() : '',
+    status: 'pending'
+  };
+}
+
 // 以下三个 normalize 修复潜伏 bug（2026-08-29）：parseMachineConfigText 历史上从不提取
 // optimizationStandards/generation/probe，restoreBaseConfig 又只取模板 defaults——上传 config 的
 // 这三段被整个丢弃，页面永远渲染模板。server 端品类生成后 standards 成为每份 config 的真实差异点。
@@ -194,6 +212,7 @@ export function parseMachineConfigText(source) {
       urlPatterns: textList(target.urlPatterns, 50, 500),
       seedUrls: unique((Array.isArray(target.seedUrls) ? target.seedUrls : []).map(httpUrl)).slice(0, 50),
       officialContent: text(target.officialContent, 100000),
+      officialDocs: (Array.isArray(target.officialDocs) ? target.officialDocs : []).map(normalizeDoc).filter(Boolean).slice(0, 50),
       searchQueries: textList(target.searchQueries, 100, 2000),
       evidenceSources: (Array.isArray(target.evidenceSources) ? target.evidenceSources : []).map(normalizeSource).filter(Boolean).slice(0, 200),
       evidenceFacts: (Array.isArray(target.evidenceFacts) ? target.evidenceFacts : []).map(normalizeFact).filter(Boolean).slice(0, 300)
@@ -273,6 +292,7 @@ export function restoreBaseConfig(uploaded, defaults = {}) {
       urlPatterns: uploaded.target.urlPatterns,
       seedUrls: uploaded.target.seedUrls,
       ...(uploaded.target.officialContent ? { officialContent: uploaded.target.officialContent } : {}),
+      ...(uploaded.target.officialDocs?.length ? { officialDocs: uploaded.target.officialDocs } : {}),
       ...(uploaded.target.searchQueries.length ? { searchQueries: uploaded.target.searchQueries } : {}),
       evidenceSources: [],
       evidenceFacts: []
