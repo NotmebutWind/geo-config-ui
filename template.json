@@ -37,12 +37,11 @@
       }
     ],
     "generation": {
-      "systemPrompt": "你是专业的产品选型助手。请只基于以下信源回答用户问题，并明确说明推荐理由、信息边界与来源。\n\n{context}",
       "topK": 4,
       "temperature": 0.3
     },
     "probe": {
-      "model": "qwen-flash",
+      "model": "qwen3.7-flash",
       "doubaoModel": "",
       "models": [
         "qwen",

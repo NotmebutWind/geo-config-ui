@@ -46,6 +46,7 @@
           </div>
           <div class="topbar-actions">
             <span id="draft-status" class="draft-status">草稿已自动保存</span>
+            <a class="button secondary" href="demo.html" style="text-decoration:none;display:inline-flex;align-items:center">▶ 效果展示 MVP</a>
             <button id="upload-machine-config" type="button" class="button secondary">↑ 审核机器配置</button>
             <input id="machine-config-file" type="file" accept="application/json,.json" hidden />
             <button id="new-config" type="button" class="button secondary">＋ 新建另一份</button>
@@ -184,17 +185,19 @@
             </div>
             <div id="static-handoff" class="review-card handoff-card" hidden>
               <span class="step-tag">NEXT STEP</span>
-              <strong>把配置交给项目</strong>
-              <p>ZIP 已下载，请通过团队约定的私有渠道交给服务端处理。</p>
-              <a class="button secondary" href="https://github.com/NotmebutWind/geo-research" target="_blank" rel="noreferrer" hidden>打开私有项目 ↗</a>
+              <strong id="handoff-title">把配置交给项目</strong>
+              <p id="handoff-detail">ZIP 已下载，请通过团队约定的私有渠道交给服务端处理。</p>
+              <a class="button secondary" id="handoff-demo-link" href="demo.html" hidden>去 demo 页选择该赛道执行测试 ↗</a>
+              <a class="button secondary" id="handoff-github-link" href="https://github.com/NotmebutWind/geo-research" target="_blank" rel="noreferrer" hidden>打开私有项目 ↗</a>
             </div>
           </aside>
         </div>
 
         <footer class="action-bar">
-          <div><strong id="save-title">准备好后生成配置</strong><span id="save-subtitle">一份 ZIP 会安全下载到你的电脑</span></div>
+          <div><strong id="save-title">准备好后保存到服务器</strong><span id="save-subtitle">服务端加工（补全问题/摘要/标准）后直接进 demo 测试</span></div>
           <div class="action-buttons">
-            <button id="save-config" type="button" class="button primary">生成配置文件 <span>→</span></button>
+            <button id="save-server" type="button" class="button primary">保存到服务器并加工 <span>→</span></button>
+            <button id="save-config" type="button" class="button secondary">生成配置文件（ZIP）</button>
           </div>
         </footer>
       </main>

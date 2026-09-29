@@ -469,8 +469,9 @@ function updatePreview() {
 
 function updatePrimaryAction() {
   const button = $('#save-config');
-  if (!button || button.disabled) return;
-  button.innerHTML = '生成配置文件 <span>→</span>';
+  if (button && !button.disabled) button.innerHTML = '生成配置文件（ZIP）';
+  const serverButton = $('#save-server');
+  if (serverButton && !serverButton.disabled) serverButton.innerHTML = '保存到服务器并加工 <span>→</span>';
 }
 
 function saveDraft() {
@@ -572,9 +573,10 @@ async function downloadOfflinePackage() {
   state.editingFileName = currentFileName();
   await loadConfigList();
   $('#static-handoff').hidden = false;
-  $('#static-handoff strong').textContent = '把 ZIP 配置包交给私有服务端';
-  $('#static-handoff p').textContent = '配置和附件只生成在这一份 ZIP 中，不会上传 GitHub。服务端拆包后会按需补全问题与摘要。';
-  $('#static-handoff a').hidden = true;
+  $('#handoff-title').textContent = '把 ZIP 配置包交给私有服务端';
+  $('#handoff-detail').textContent = '配置和附件只生成在这一份 ZIP 中，不会上传 GitHub。服务端拆包后会按需补全问题与摘要。';
+  $('#handoff-demo-link').hidden = true;
+  $('#handoff-github-link').hidden = true;
   showToast('配置文件已下载', `ZIP 中包含一份配置和 ${manifestEntries.length} 个附件。`);
   return true;
 }
@@ -706,6 +708,86 @@ async function saveConfig() {
   }
 }
 
+/** 一键入库（2026-09-25 用户口径）：配置直接存到服务器 config/ 并触发服务端加工流程
+ *  （短链纠偏 → 浏览器/公开页提取 → 补全问题与竞品摘要 → 生成优化标准）。成功后引导
+ *  去 demo 页选择该赛道执行测试；失败报错。本地附件走不了 JSON 通道，如实拦下改指 ZIP。 */
+async function saveToServer({ overwrite = false } = {}) {
+  if (state.staticMode) return;
+  if (!validateForm()) return;
+  if (state.attachments.size) {
+    showToast('本地附件无法通过网页直存', `有 ${state.attachments.size} 个本地文件只随 ZIP 上传：请改用「生成配置文件（ZIP）」，或把这些资料改为 URL / 手填内容形式。`, 'error');
+    return;
+  }
+  const button = $('#save-server');
+  button.disabled = true;
+  button.textContent = '正在存入并加工…（补全问题/摘要/标准，约 1–3 分钟）';
+  try {
+    const response = await fetch('/api/configs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fileName: currentFileName(),
+        overwrite,
+        processing: buildProcessingOptions(),
+        config: buildConfig()
+      })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (response.status === 409 && !overwrite) {
+      const proceed = window.confirm(`${result.error || `${currentFileName()} 在服务器上已存在`}。\n是否覆盖它？`);
+      if (proceed) return saveToServer({ overwrite: true });
+      return;
+    }
+    if (!response.ok) {
+      const details = Array.isArray(result.details) && result.details.length ? `：${result.details.join('；')}` : '';
+      throw new Error(`${result.error || response.statusText}${details}`);
+    }
+    onServerSaveSuccess(result);
+  } catch (error) {
+    showToast('保存失败', error.message, 'error');
+  } finally {
+    button.disabled = false;
+    updatePrimaryAction();
+  }
+}
+
+function onServerSaveSuccess(result) {
+  const fileName = result.fileName || currentFileName();
+  localStorage.removeItem('geo-config-draft');
+  state.editingFileName = fileName;
+  state.slugTouched = true;
+  loadConfigList();
+  const generated = result.generated || {};
+  const bits = [];
+  if (generated.questions) bits.push('自动生成测试问题');
+  if (generated.competitors?.length) bits.push(`补全竞品摘要 ${generated.competitors.length} 个`);
+  if (generated.linkResolutions?.length) bits.push(`短链/链接纠偏 ${generated.linkResolutions.length} 条`);
+  if (generated.browserExtractions?.length) bits.push(`浏览器提取页面 ${generated.browserExtractions.length} 个`);
+  if (generated.taobaoPublicPages?.length) bits.push(`公开页补全 ${generated.taobaoPublicPages.length} 个`);
+  if (generated.newCompetitors?.length) bits.push(`新发现竞品块 ${generated.newCompetitors.length} 个`);
+  if (generated.standards) bits.push(generated.standards === 'catalog' ? '优化标准命中行业目录' : generated.standards === 'fallback-floor' ? '优化标准回退通用基础' : '生成优化标准');
+  const warnings = Array.isArray(result.warnings) ? result.warnings : [];
+  const handoff = $('#static-handoff');
+  handoff.hidden = false;
+  $('#handoff-title').textContent = '已入库并完成加工';
+  const detail = $('#handoff-detail');
+  detail.textContent = '';
+  const savedLine = document.createElement('strong');
+  savedLine.textContent = `配置已保存为 config/${fileName}`;
+  detail.append(savedLine);
+  if (bits.length) detail.append(`本次加工：${bits.join('、')}。`);
+  if (warnings.length) detail.append(`加工告警 ${warnings.length} 条：${warnings.slice(0, 3).join('；')}${warnings.length > 3 ? '…' : ''}`);
+  detail.append('下一步：到 demo 页选择该赛道执行测试，等待查看结果。');
+  const link = $('#handoff-demo-link');
+  link.href = `demo.html?track=${encodeURIComponent(fileName)}`;
+  link.hidden = false;
+  $('#handoff-github-link').hidden = true;
+  $('#save-title').textContent = '配置已保存到服务器';
+  $('#save-subtitle').textContent = `config/${fileName}`;
+  showToast('已保存并完成加工', '到 demo 页选择该赛道跑测试，等待查看结果。');
+  window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+}
+
 function renderConfigButtons(container, configs, local = false) {
   container.innerHTML = '';
   configs.slice(0, 7).forEach((item) => {
@@ -787,8 +869,8 @@ function newConfig({ keepDefaults = true } = {}) {
   state.slugTouched = false;
   localStorage.removeItem('geo-config-draft');
   $('#static-handoff').hidden = true;
-  $('#save-title').textContent = '准备好后生成配置';
-  $('#save-subtitle').textContent = '一份 ZIP 会安全下载到你的电脑';
+  $('#save-title').textContent = '准备好后保存到服务器';
+  $('#save-subtitle').textContent = '服务端加工（补全问题/摘要/标准）后直接进 demo 测试';
   getField('name').focus();
 }
 
@@ -895,6 +977,9 @@ async function init() {
       if (!response.ok) throw new Error('无法读取公开版配置模板');
       state.template = (await response.json()).config;
       state.staticMode = true;
+      // 静态模式没有服务端：一键入库不可用，只留 ZIP 下载通道
+      const serverButton = $('#save-server');
+      if (serverButton) serverButton.hidden = true;
     }
     const draft = localStorage.getItem('geo-config-draft');
     if (draft) {
@@ -924,6 +1009,7 @@ setupOfficialDocsDropZone();
 getField('target.name').addEventListener('input', () => { getField('target.name').dataset.synced = 'false'; });
 $$('[data-add]').forEach((button) => button.addEventListener('click', () => addItem(button.dataset.add)));
 $('#save-config').addEventListener('click', saveConfig);
+$('#save-server').addEventListener('click', () => saveToServer());
 $('#new-config').addEventListener('click', () => newConfig());
 $('#refresh-list').addEventListener('click', loadConfigList);
 $('#copy-json').addEventListener('click', copyJson);
